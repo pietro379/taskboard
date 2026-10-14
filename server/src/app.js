@@ -13,6 +13,10 @@ import { errorHandler, notFound } from './middleware/error.js'
 export function createApp({ users, db }) {
   const app = express()
 
+  // Vercel gibi bir ters vekilin arkasında gerçek istemci adresi X-Forwarded-For başlığından okunur
+  // (hız sınırı doğru çalışsın diye).
+  app.set('trust proxy', 1)
+
   app.use(helmet())
   app.use(cors({ origin: config.corsOrigin }))
   app.use(express.json({ limit: '100kb' }))
