@@ -1,4 +1,5 @@
 import { HttpError } from './error.js'
+import { LABEL_IDS_SQL } from '../lib/tasks.js'
 
 // URL'deki kimlikleri doğrular; geçersizse kaynak yokmuş gibi 404 döner.
 export function parseId(value) {
@@ -45,7 +46,7 @@ export async function projectContext(db, projectId, userId) {
 
 export async function taskContext(db, taskId, userId) {
   const { rows } = await db.query(
-    `SELECT t.*, p.workspace_id, m.role FROM tasks t
+    `SELECT t.*, ${LABEL_IDS_SQL}, p.workspace_id, m.role FROM tasks t
      JOIN projects p ON p.id = t.project_id
      JOIN workspace_members m ON m.workspace_id = p.workspace_id AND m.user_id = $2
      WHERE t.id = $1`,

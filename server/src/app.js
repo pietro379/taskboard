@@ -7,6 +7,7 @@ import { authRouter } from './routes/auth.js'
 import { workspacesRouter } from './routes/workspaces.js'
 import { projectsRouter } from './routes/projects.js'
 import { tasksRouter } from './routes/tasks.js'
+import { labelsRouter } from './routes/labels.js'
 import { errorHandler, notFound } from './middleware/error.js'
 
 // Bağımlılıklar dışarıdan verilir; testlerde gerçek veritabanı yerine sahte repo kullanılabilir.
@@ -30,6 +31,7 @@ export function createApp({ users, db }) {
   app.use('/api/workspaces', workspacesRouter({ db }))
   app.use('/api', projectsRouter({ db }))
   app.use('/api', tasksRouter({ db }))
+  app.use('/api', labelsRouter({ db }))
 
   app.use(notFound)
   app.use(errorHandler)
