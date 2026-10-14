@@ -1,10 +1,16 @@
 # Taskboard
 
-Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, rollü üyelik, projeler, görevler ve yorumlar; REST API'si Node.js, Express ve PostgreSQL ile yazıldı.
+Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, rollü üyelik, projeler, görevler ve yorumlar; REST API'si Node.js, Express ve PostgreSQL ile, arayüzü React ve Tailwind CSS ile yazıldı.
 
 ![CI](https://github.com/pietro379/taskboard/actions/workflows/ci.yml/badge.svg)
 
-> **Durum:** API tamamlandı ve testlerle doğrulandı. React arayüzü ve canlı yayın yol haritasında.
+![Sürükle-bırak görev panosu](docs/board.png)
+
+| Çalışma alanı | Görev detayı ve yorumlar |
+| --- | --- |
+| ![Çalışma alanı sayfası](docs/workspace.png) | ![Görev detayı](docs/task.png) |
+
+> **Durum:** API ve arayüz tamamlandı. API testlerle doğrulandı; canlı yayın yol haritasında.
 
 ## Özellikler
 
@@ -15,6 +21,9 @@ Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, roll
 - Görev listesinde durum/atanan filtresi, başlıkta arama ve sayfalama
 - Görevlere yorum yazma
 - Çalışma alanı etkinlik geçmişi (kim, ne zaman, ne yaptı)
+- Sürükle-bırak görev panosu: kart bırakıldığı anda arayüz güncellenir, sunucu isteği reddederse eski haline döner
+- Panoda başlığa ve atanan kişiye göre filtreleme; masaüstü ve mobilde çalışan duyarlı tasarım
+- Klavyeyle gezilebilir kartlar ve diyaloglar (`Esc` ile kapanır), kullanıcı dostu hata mesajları
 
 ## Tasarım kararları
 
@@ -50,12 +59,22 @@ Gereksinimler: Node.js 20+ ve bir PostgreSQL veritabanı ([Neon](https://neon.te
 
 ```bash
 git clone https://github.com/pietro379/taskboard.git
-cd taskboard/server
+cd taskboard
+
+# API
+cd server
 npm install
 cp .env.example .env     # DATABASE_URL ve JWT_SECRET değerlerini doldurun
 npm run migrate          # tabloları oluşturur
 npm run dev              # http://localhost:3000
+
+# Arayüz (ayrı bir terminalde)
+cd client
+npm install
+npm run dev              # http://localhost:5173 (/api istekleri API'ye yönlendirilir)
 ```
+
+Yayında arayüz ve API ayrı adreslerde çalışacaksa, arayüzü derlerken `VITE_API_URL` ile API adresini, API'de ise `CORS_ORIGIN` ile arayüz adresini verin.
 
 ## Testler
 
@@ -70,7 +89,14 @@ Kimlik doğrulama testleri bellekte çalışır. Çalışma alanı, proje ve gö
 
 ```
 .
-├── .github/workflows/ci.yml   Test hattı
+├── .github/workflows/ci.yml   API testleri ve arayüz derlemesi
+├── docs/                      README ekran görüntüleri
+├── client/
+│   └── src/
+│       ├── api.js             Fetch sarmalayıcı, token ve hata yönetimi
+│       ├── auth.jsx           Oturum bağlamı (giriş, kayıt, çıkış)
+│       ├── components/        Ortak arayüz parçaları, görev diyaloğu
+│       └── pages/             Giriş, çalışma alanları, çalışma alanı, pano
 └── server/
     ├── migrations/            SQL şema dosyaları
     ├── src/
@@ -85,6 +111,7 @@ Kimlik doğrulama testleri bellekte çalışır. Çalışma alanı, proje ve gö
 
 ## Yol haritası
 
-- [ ] React arayüzü: giriş, çalışma alanları, sürükle-bırak görev panosu
+- [x] React arayüzü: giriş, çalışma alanları, sürükle-bırak görev panosu
 - [ ] Canlı yayın (API ve arayüz)
+- [ ] Arayüz testleri
 - [ ] Görev etiketleri ve dosya ekleri
