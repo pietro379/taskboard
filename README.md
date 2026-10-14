@@ -21,9 +21,9 @@ Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, roll
 - Roller: **yönetici** (üye ve proje yönetimi) ve **üye** (görevlerle çalışır)
 - Projeler ve görevler: durum (`todo`, `in_progress`, `done`), öncelik, atanan kişi, son tarih
 - Görev listesinde durum/atanan filtresi, başlıkta arama ve sayfalama
-- Görevlere yorum yazma
+- Görevlere yorum yazma ve çalışma alanı bazında renkli etiketler (görev başına birden fazla, etikete göre filtreleme)
 - Çalışma alanı etkinlik geçmişi (kim, ne zaman, ne yaptı)
-- Sürükle-bırak görev panosu: kart bırakıldığı anda arayüz güncellenir, sunucu isteği reddederse eski haline döner
+- Sürükle-bırak görev panosu: kartlar sütunlar arasında ve sütun içinde istenen sıraya taşınır; arayüz anında güncellenir, sunucu isteği reddederse eski haline döner, sıra veritabanında kalıcıdır
 - Panoda başlığa ve atanan kişiye göre filtreleme; masaüstü ve mobilde çalışan duyarlı tasarım
 - Klavyeyle gezilebilir kartlar ve diyaloglar (`Esc` ile kapanır), kullanıcı dostu hata mesajları
 
@@ -51,9 +51,12 @@ Kimlik gerektirmeyenler dışındaki tüm uçlar `Authorization: Bearer <token>`
 | GET | `/api/workspaces/:id/activity` | Etkinlik geçmişi |
 | POST · GET | `/api/workspaces/:id/projects` | Proje oluştur / listele |
 | GET · PATCH · DELETE | `/api/projects/:id` | Proje detayı / güncelle / sil (yönetici) |
-| POST · GET | `/api/projects/:id/tasks` | Görev oluştur / listele (`status`, `assigneeId`, `q`, `limit`, `offset`) |
+| POST · GET | `/api/projects/:id/tasks` | Görev oluştur / listele (`status`, `assigneeId`, `labelId`, `q`, `limit`, `offset`) |
 | GET · PATCH · DELETE | `/api/tasks/:id` | Görev detayı / güncelle / sil (yönetici veya oluşturan) |
+| POST | `/api/tasks/:id/move` | Görevi bir sütuna, belirli sıraya taşı (`status`, `index`) |
 | POST · GET | `/api/tasks/:id/comments` | Yorum yaz / listele |
+| POST · GET | `/api/workspaces/:id/labels` | Etiket oluştur / listele |
+| DELETE | `/api/labels/:id` | Etiketi sil (yönetici) |
 
 ## Kurulum
 
@@ -81,11 +84,11 @@ Yayında arayüz ve API ayrı adreslerde çalışacaksa, arayüzü derlerken `VI
 ## Testler
 
 ```bash
-cd server
-npm test
+cd server && npm test    # API: kimlik doğrulama, yetki kuralları, etiketler, sıralama
+cd client && npm test    # Arayüz: API istemcisi, giriş akışı, görev penceresi, taşıma mantığı
 ```
 
-Kimlik doğrulama testleri bellekte çalışır. Çalışma alanı, proje ve görev testleri ise gerçek SQL'i ve yetki kurallarını geçici bir veritabanı şemasında dener; `DATABASE_URL` tanımlı değilse bu testler atlanır. GitHub Actions her push'ta PostgreSQL servisiyle tüm testleri çalıştırır.
+API testlerinden kimlik doğrulama olanları bellekte çalışır. Çalışma alanı, proje, görev, etiket ve sıralama testleri ise gerçek SQL'i ve yetki kurallarını geçici bir veritabanı şemasında dener; `DATABASE_URL` tanımlı değilse bu testler atlanır. Arayüz testleri Vitest, jsdom ve Testing Library ile yazıldı. GitHub Actions her push'ta PostgreSQL servisiyle API testlerini, arayüz testlerini ve arayüz derlemesini çalıştırır.
 
 ## Proje yapısı
 
@@ -115,5 +118,7 @@ Kimlik doğrulama testleri bellekte çalışır. Çalışma alanı, proje ve gö
 
 - [x] React arayüzü: giriş, çalışma alanları, sürükle-bırak görev panosu
 - [x] Canlı yayın (API ve arayüz, Vercel)
-- [ ] Arayüz testleri
-- [ ] Görev etiketleri ve dosya ekleri
+- [x] Arayüz testleri
+- [x] Görev etiketleri ve sütun içi sıralama
+- [ ] Dosya ekleri
+- [ ] E-posta ile üye daveti (harici e-posta servisi gerektirir)

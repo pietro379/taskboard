@@ -46,7 +46,7 @@ jobs:
       - run: npm test
 
   client:
-    name: Arayüz derlemesi
+    name: Arayüz testleri ve derleme
     runs-on: ubuntu-latest
 
     defaults:
@@ -63,5 +63,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
 
       - run: npm ci
+
+      - run: npm test
 
       - run: npm run build
