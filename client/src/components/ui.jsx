@@ -108,3 +108,19 @@ export const PRIORITIES = {
   medium: { label: 'Orta', className: 'bg-sky-100 text-sky-700' },
   high: { label: 'Yüksek', className: 'bg-rose-100 text-rose-700' },
 }
+
+// Etiket renkleri sabit bir paletten gelir (sunucudaki CHECK kısıtıyla aynı liste).
+export const LABEL_STYLES = {
+  slate: { chip: 'bg-slate-100 text-slate-700', dot: 'bg-slate-500' },
+  red: { chip: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
+  amber: { chip: 'bg-amber-100 text-amber-800', dot: 'bg-amber-500' },
+  emerald: { chip: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  sky: { chip: 'bg-sky-100 text-sky-700', dot: 'bg-sky-500' },
+  indigo: { chip: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
+  violet: { chip: 'bg-violet-100 text-violet-700', dot: 'bg-violet-500' },
+  pink: { chip: 'bg-pink-100 text-pink-700', dot: 'bg-pink-500' },
+}
+
+export function LabelChip({ label }) {
+  return <Badge className={LABEL_STYLES[label.color]?.chip ?? LABEL_STYLES.slate.chip}>{label.name}</Badge>
+}

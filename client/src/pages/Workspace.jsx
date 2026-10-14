@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../api.js'
 import { formatDate, useLoad } from '../hooks.js'
 import { useAuth } from '../auth.jsx'
-import { Avatar, Badge, Button, ErrorBanner, Field, Modal, Spinner, inputClass } from '../components/ui.jsx'
+import { Avatar, Badge, Button, ErrorBanner, Field, LabelChip, Modal, Spinner, inputClass } from '../components/ui.jsx'
 
 const ACTIONS = {
   'workspace.created': 'çalışma alanını oluşturdu',
@@ -15,6 +15,7 @@ const ACTIONS = {
   'task.created': 'bir görev oluşturdu',
   'task.updated': 'bir görevi güncelledi',
   'task.status_changed': 'bir görevin durumunu değiştirdi',
+  'task.reordered': 'bir görevin sırasını değiştirdi',
   'task.deleted': 'bir görevi sildi',
 }
 
@@ -93,7 +94,10 @@ export default function Workspace() {
           </ul>
         </section>
 
-        <MembersPanel workspace={ws} members={members} isAdmin={isAdmin} onChange={refreshMembers} />
+        <div className="space-y-8">
+          <MembersPanel workspace={ws} members={members} isAdmin={isAdmin} onChange={refreshMembers} />
+          <LabelsPanel workspaceId={id} isAdmin={isAdmin} />
+        </div>
       </div>
 
       {creating && <CreateProject workspaceId={id} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); projects.reload(); activity.reload() }} />}
@@ -194,6 +198,44 @@ function MembersPanel({ workspace, members, isAdmin, onChange }) {
       )}
       {!isAdmin && error && <ErrorBanner error={error} />}
     </aside>
+  )
+}
+
+// Etiketler görev penceresinden oluşturulur; burada listelenir ve yönetici silebilir.
+function LabelsPanel({ workspaceId, isAdmin }) {
+  const { data, error, reload } = useLoad(() => api.get(`/api/workspaces/${workspaceId}/labels`), [workspaceId])
+  const [removeError, setRemoveError] = useState(null)
+
+  async function remove(label) {
+    setRemoveError(null)
+    try {
+      await api.delete(`/api/labels/${label.id}`)
+      reload()
+    } catch (err) {
+      setRemoveError(err)
+    }
+  }
+
+  return (
+    <section aria-label="Etiketler">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Etiketler</h2>
+      <ErrorBanner error={error ?? removeError} />
+      {data?.labels.length === 0 && <p className="text-sm text-slate-500">Henüz etiket yok. Görev oluştururken ekleyebilirsin.</p>}
+      <ul className="flex flex-wrap gap-2">
+        {data?.labels.map((l) => (
+          <li key={l.id} className="flex items-center gap-1">
+            <LabelChip label={l} />
+            {isAdmin && (
+              <button onClick={() => remove(l)} aria-label={`${l.name} etiketini sil`} className="rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

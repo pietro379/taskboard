@@ -1,10 +1,28 @@
 import { useState } from 'react'
 import { api } from '../api.js'
 import { formatDate, useLoad } from '../hooks.js'
-import { Avatar, Button, ErrorBanner, Field, Modal, PRIORITIES, STATUSES, inputClass } from './ui.jsx'
+import { Avatar, Button, ErrorBanner, Field, LABEL_STYLES, Modal, PRIORITIES, STATUSES, inputClass } from './ui.jsx'
+
+const sameSet = (a, b) => a.length === b.length && a.every((id) => b.includes(id))
+
+// Yalnızca değişen alanlardan oluşan güncelleme gövdesini üretir (boş seçimler null olarak gider).
+export function buildChanges(task, form) {
+  const next = { ...form, assigneeId: form.assigneeId || null, dueDate: form.dueDate || null }
+  const original = {
+    title: task.title,
+    description: task.description,
+    status: task.status,
+    priority: task.priority,
+    assigneeId: task.assigneeId,
+    dueDate: task.dueDate,
+  }
+  const changes = Object.fromEntries(Object.entries(original).filter(([key, value]) => next[key] !== value).map(([key]) => [key, next[key]]))
+  if (!sameSet(task.labelIds, form.labelIds)) changes.labelIds = form.labelIds
+  return changes
+}
 
 // task === null ise yeni görev oluşturulur, değilse mevcut görev düzenlenir.
-export default function TaskModal({ task, defaultStatus = 'todo', projectId, members, userId, role, onClose, onChanged }) {
+export default function TaskModal({ task, defaultStatus = 'todo', projectId, workspaceId, members, labels, userId, role, onClose, onChanged, onLabelCreated }) {
   const isNew = task === null
   const [form, setForm] = useState({
     title: task?.title ?? '',
@@ -13,6 +31,7 @@ export default function TaskModal({ task, defaultStatus = 'todo', projectId, mem
     priority: task?.priority ?? 'medium',
     assigneeId: task?.assigneeId ?? '',
     dueDate: task?.dueDate ?? '',
+    labelIds: task?.labelIds ?? [],
   })
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -20,29 +39,17 @@ export default function TaskModal({ task, defaultStatus = 'todo', projectId, mem
   const canDelete = !isNew && (role === 'admin' || task.createdBy === userId)
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-
-  // Boş seçimler sunucuya null olarak gider (atamayı veya tarihi temizler).
-  const toPayload = (f) => ({ ...f, assigneeId: f.assigneeId || null, dueDate: f.dueDate || null })
+  const toggleLabel = (id) => setForm((f) => ({ ...f, labelIds: f.labelIds.includes(id) ? f.labelIds.filter((x) => x !== id) : [...f.labelIds, id] }))
 
   async function save(e) {
     e.preventDefault()
     setBusy(true)
     setError(null)
     try {
-      const payload = toPayload(form)
       if (isNew) {
-        await api.post(`/api/projects/${projectId}/tasks`, payload)
+        await api.post(`/api/projects/${projectId}/tasks`, { ...form, assigneeId: form.assigneeId || null, dueDate: form.dueDate || null })
       } else {
-        // Yalnızca değişen alanlar gönderilir
-        const original = toPayload({
-          title: task.title,
-          description: task.description,
-          status: task.status,
-          priority: task.priority,
-          assigneeId: task.assigneeId ?? '',
-          dueDate: task.dueDate ?? '',
-        })
-        const changes = Object.fromEntries(Object.entries(payload).filter(([key, value]) => value !== original[key]))
+        const changes = buildChanges(task, form)
         if (Object.keys(changes).length > 0) await api.patch(`/api/tasks/${task.id}`, changes)
       }
       onChanged()
@@ -108,6 +115,17 @@ export default function TaskModal({ task, defaultStatus = 'todo', projectId, mem
             </Field>
           </div>
 
+          <LabelPicker
+            workspaceId={workspaceId}
+            labels={labels}
+            selected={form.labelIds}
+            onToggle={toggleLabel}
+            onCreated={(label) => {
+              onLabelCreated?.(label)
+              setForm((f) => ({ ...f, labelIds: [...f.labelIds, label.id] }))
+            }}
+          />
+
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             <div>
               {canDelete &&
@@ -140,6 +158,99 @@ export default function TaskModal({ task, defaultStatus = 'todo', projectId, mem
         {!isNew && <Comments taskId={task.id} className="md:col-span-2" />}
       </div>
     </Modal>
+  )
+}
+
+function LabelPicker({ workspaceId, labels, selected, onToggle, onCreated }) {
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState({ name: '', color: 'indigo' })
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  async function create() {
+    if (!draft.name.trim()) return
+    setBusy(true)
+    setError(null)
+    try {
+      const { label } = await api.post(`/api/workspaces/${workspaceId}/labels`, draft)
+      onCreated(label)
+      setDraft({ name: '', color: 'indigo' })
+      setAdding(false)
+    } catch (err) {
+      setError(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <fieldset>
+      <legend className="mb-1 text-sm font-medium text-slate-700">Etiketler</legend>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {labels.map((l) => {
+          const on = selected.includes(l.id)
+          return (
+            <button
+              key={l.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onToggle(l.id)}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${LABEL_STYLES[l.color]?.chip} ${on ? 'ring-2 ring-indigo-600' : 'opacity-60 hover:opacity-100'}`}
+            >
+              {l.name}
+            </button>
+          )
+        })}
+        {!adding && (
+          <button type="button" onClick={() => setAdding(true)} className="rounded-full px-2.5 py-1 text-xs font-medium text-indigo-600 ring-1 ring-indigo-200 hover:bg-indigo-50">
+            + Yeni etiket
+          </button>
+        )}
+      </div>
+      {adding && (
+        <div className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+          <ErrorBanner error={error} />
+          <input
+            className={inputClass}
+            placeholder="Etiket adı"
+            aria-label="Yeni etiket adı"
+            maxLength={30}
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            onKeyDown={(e) => {
+              // Enter, görev formunu göndermesin
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                create()
+              }
+            }}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex gap-1.5" role="radiogroup" aria-label="Etiket rengi">
+              {Object.entries(LABEL_STYLES).map(([color, style]) => (
+                <button
+                  key={color}
+                  type="button"
+                  role="radio"
+                  aria-checked={draft.color === color}
+                  aria-label={color}
+                  onClick={() => setDraft({ ...draft, color })}
+                  className={`size-5 rounded-full ${style.dot} ${draft.color === color ? 'ring-2 ring-offset-2 ring-slate-900' : ''}`}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" className="!px-2 !py-1" onClick={() => setAdding(false)}>
+                Vazgeç
+              </Button>
+              <Button type="button" className="!px-3 !py-1" onClick={create} disabled={busy || !draft.name.trim()}>
+                Ekle
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </fieldset>
   )
 }
 

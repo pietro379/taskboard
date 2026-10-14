@@ -1,13 +1,38 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, closestCorners, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { api } from '../api.js'
 import { formatDay, isOverdue, useLoad } from '../hooks.js'
 import { useAuth } from '../auth.jsx'
 import TaskModal from '../components/TaskModal.jsx'
-import { Avatar, Badge, Button, ErrorBanner, Modal, PRIORITIES, STATUSES, Spinner, inputClass } from '../components/ui.jsx'
+import { Avatar, Badge, Button, ErrorBanner, LabelChip, Modal, PRIORITIES, STATUSES, Spinner, inputClass } from '../components/ui.jsx'
 
 const byPosition = (a, b) => a.position - b.position || Number(a.id) - Number(b.id)
+const isColumn = (id) => STATUSES.some((s) => s.id === id)
+
+// Sürüklenen görevin hedef sütununu ve o sütundaki ekleme sırasını bulur.
+// index, taşınan görev hariç hedef listedeki konumdur (sunucudaki /move ile aynı anlam).
+export function resolveMove(tasks, activeId, overId) {
+  const task = tasks.find((t) => t.id === activeId)
+  if (!task || activeId === overId) return null
+
+  const overTask = tasks.find((t) => t.id === overId)
+  const status = isColumn(overId) ? overId : overTask?.status
+  if (!status) return null
+
+  const column = tasks.filter((t) => t.status === status).sort(byPosition)
+  const index = isColumn(overId) ? column.filter((t) => t.id !== task.id).length : column.findIndex((t) => t.id === overId)
+  return { task, status, index }
+}
+
+// Taşımayı yerel listeye uygular: hedef sütun yeniden numaralandırılır.
+export function applyMove(tasks, { task, status, index }) {
+  const rest = tasks.filter((t) => t.status === status && t.id !== task.id).sort(byPosition)
+  rest.splice(index, 0, { ...task, status })
+  const moved = rest.map((t, i) => ({ ...t, position: i + 1 }))
+  return [...tasks.filter((t) => t.status !== status && t.id !== task.id), ...moved]
+}
 
 export default function Board() {
   const { id } = useParams()
@@ -17,12 +42,13 @@ export default function Board() {
   const project = useLoad(() => api.get(`/api/projects/${id}`), [id])
   const workspaceId = project.data?.project.workspaceId
   const workspace = useLoad(() => (workspaceId ? api.get(`/api/workspaces/${workspaceId}`) : Promise.resolve(null)), [workspaceId])
+  const labelsLoad = useLoad(() => (workspaceId ? api.get(`/api/workspaces/${workspaceId}/labels`) : Promise.resolve(null)), [workspaceId])
   const tasksLoad = useLoad(() => api.get(`/api/projects/${id}/tasks?limit=100`), [id])
 
   const [modal, setModal] = useState(null) // { task, status }
   const [dragging, setDragging] = useState(null)
   const [boardError, setBoardError] = useState(null)
-  const [filters, setFilters] = useState({ q: '', assignee: '' })
+  const [filters, setFilters] = useState({ q: '', assignee: '', label: '' })
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const sensors = useSensors(
@@ -32,6 +58,7 @@ export default function Board() {
 
   const tasks = tasksLoad.data?.tasks
   const members = workspace.data?.members ?? []
+  const labels = labelsLoad.data?.labels ?? []
   const role = workspace.data?.workspace.role
 
   const visible = useMemo(() => {
@@ -39,6 +66,7 @@ export default function Board() {
     const q = filters.q.trim().toLowerCase()
     return tasks.filter((t) => {
       if (q && !t.title.toLowerCase().includes(q)) return false
+      if (filters.label && !t.labelIds.includes(filters.label)) return false
       if (filters.assignee === 'none') return t.assigneeId === null
       if (filters.assignee) return t.assigneeId === filters.assignee
       return true
@@ -59,23 +87,23 @@ export default function Board() {
 
   const p = project.data.project
   const memberById = Object.fromEntries(members.map((m) => [m.id, m]))
+  const labelById = Object.fromEntries(labels.map((l) => [l.id, l]))
 
   function setTasks(next) {
     tasksLoad.setData({ ...tasksLoad.data, tasks: next })
   }
 
-  // Kartı sürüklediğimizde arayüz hemen güncellenir; sunucu reddederse eski haline döner.
+  // Kart bırakıldığında arayüz hemen güncellenir; sunucu reddederse eski haline döner.
   function onDragEnd({ active, over }) {
     setDragging(null)
     if (!over) return
-    const task = tasks.find((t) => t.id === active.id)
-    if (!task || task.status === over.id) return
+    const move = resolveMove(tasks, active.id, over.id)
+    if (!move) return
 
-    const position = Math.max(0, ...tasks.filter((t) => t.status === over.id).map((t) => t.position)) + 1
     const previous = tasks
-    setTasks(tasks.map((t) => (t.id === task.id ? { ...t, status: over.id, position } : t)))
+    setTasks(applyMove(tasks, move))
     setBoardError(null)
-    api.patch(`/api/tasks/${task.id}`, { status: over.id, position }).catch((err) => {
+    api.post(`/api/tasks/${move.task.id}/move`, { status: move.status, index: move.index }).catch((err) => {
       setTasks(previous)
       setBoardError(err)
     })
@@ -127,6 +155,16 @@ export default function Board() {
               </option>
             ))}
         </select>
+        {labels.length > 0 && (
+          <select className={`${inputClass} !w-44`} aria-label="Etikete göre filtrele" value={filters.label} onChange={(e) => setFilters({ ...filters, label: e.target.value })}>
+            <option value="">Tüm etiketler</option>
+            {labels.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="mt-4 space-y-3">
@@ -134,13 +172,21 @@ export default function Board() {
         {tasksLoad.data.total > tasks.length && <p className="text-sm text-amber-700">Yalnızca ilk {tasks.length} görev gösteriliyor ({tasksLoad.data.total} görev var).</p>}
       </div>
 
-      <DndContext sensors={sensors} onDragStart={({ active }) => setDragging(active.id)} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={({ active }) => setDragging(active.id)} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           {STATUSES.map((s) => (
-            <Column key={s.id} status={s} tasks={visible.filter((t) => t.status === s.id).sort(byPosition)} memberById={memberById} onOpen={(task) => setModal({ task })} onAdd={() => setModal({ task: null, status: s.id })} />
+            <Column
+              key={s.id}
+              status={s}
+              tasks={visible.filter((t) => t.status === s.id).sort(byPosition)}
+              memberById={memberById}
+              labelById={labelById}
+              onOpen={(task) => setModal({ task })}
+              onAdd={() => setModal({ task: null, status: s.id })}
+            />
           ))}
         </div>
-        <DragOverlay>{activeTask && <TaskCard task={activeTask} assignee={memberById[activeTask.assigneeId]} overlay />}</DragOverlay>
+        <DragOverlay>{activeTask && <TaskCard task={activeTask} assignee={memberById[activeTask.assigneeId]} labelById={labelById} overlay />}</DragOverlay>
       </DndContext>
 
       {modal && (
@@ -148,10 +194,13 @@ export default function Board() {
           task={modal.task}
           defaultStatus={modal.status}
           projectId={p.id}
+          workspaceId={p.workspaceId}
           members={members}
+          labels={labels}
           userId={user.id}
           role={role}
           onClose={() => setModal(null)}
+          onLabelCreated={() => labelsLoad.reload()}
           onChanged={() => {
             setModal(null)
             tasksLoad.reload()
@@ -178,7 +227,7 @@ export default function Board() {
   )
 }
 
-function Column({ status, tasks, memberById, onOpen, onAdd }) {
+function Column({ status, tasks, memberById, labelById, onOpen, onAdd }) {
   const { setNodeRef, isOver } = useDroppable({ id: status.id })
   return (
     <section ref={setNodeRef} aria-label={status.label} className={`flex min-h-48 flex-col rounded-2xl p-3 ring-1 transition ${isOver ? 'bg-indigo-50 ring-indigo-300' : 'bg-slate-100/70 ring-slate-200'}`}>
@@ -194,27 +243,34 @@ function Column({ status, tasks, memberById, onOpen, onAdd }) {
           </svg>
         </button>
       </header>
-      <ul className="flex-1 space-y-2">
-        {tasks.map((task) => (
-          <DraggableCard key={task.id} task={task} assignee={memberById[task.assigneeId]} onOpen={() => onOpen(task)} />
-        ))}
-      </ul>
+      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <ul className="min-h-12 flex-1 space-y-2">
+          {tasks.map((task) => (
+            <SortableCard key={task.id} task={task} assignee={memberById[task.assigneeId]} labelById={labelById} onOpen={() => onOpen(task)} />
+          ))}
+        </ul>
+      </SortableContext>
     </section>
   )
 }
 
-function DraggableCard({ task, assignee, onOpen }) {
-  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: task.id })
+function SortableCard({ task, assignee, labelById, onOpen }) {
+  const { setNodeRef, listeners, attributes, isDragging, transform, transition } = useSortable({ id: task.id })
+  const style = {
+    transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
+    transition,
+  }
   return (
-    <li ref={setNodeRef} className={isDragging ? 'opacity-30' : ''}>
-      <TaskCard task={task} assignee={assignee} onOpen={onOpen} dragProps={{ ...listeners, ...attributes }} />
+    <li ref={setNodeRef} style={style} className={isDragging ? 'opacity-30' : ''}>
+      <TaskCard task={task} assignee={assignee} labelById={labelById} onOpen={onOpen} dragProps={{ ...listeners, ...attributes }} />
     </li>
   )
 }
 
-function TaskCard({ task, assignee, onOpen, dragProps, overlay = false }) {
+function TaskCard({ task, assignee, labelById, onOpen, dragProps, overlay = false }) {
   const priority = PRIORITIES[task.priority]
   const overdue = isOverdue(task.dueDate, task.status)
+  const labels = task.labelIds.map((id) => labelById[id]).filter(Boolean)
   return (
     <div
       {...dragProps}
@@ -226,6 +282,13 @@ function TaskCard({ task, assignee, onOpen, dragProps, overlay = false }) {
       tabIndex={0}
       className={`block w-full cursor-grab touch-manipulation rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus-visible:outline-2 focus-visible:outline-indigo-600 ${overlay ? 'rotate-2 cursor-grabbing shadow-xl' : ''}`}
     >
+      {labels.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
+          {labels.map((l) => (
+            <LabelChip key={l.id} label={l} />
+          ))}
+        </div>
+      )}
       <p className="text-sm font-medium leading-snug">{task.title}</p>
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
