@@ -10,7 +10,9 @@ Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, roll
 | --- | --- |
 | ![Çalışma alanı sayfası](docs/workspace.png) | ![Görev detayı](docs/task.png) |
 
-> **Durum:** API ve arayüz tamamlandı. API testlerle doğrulandı; canlı yayın yol haritasında.
+**Canlı demo:** [taskboard-app-red.vercel.app](https://taskboard-app-red.vercel.app) · API: [taskboard-api-sand.vercel.app](https://taskboard-api-sand.vercel.app/health)
+
+> **Durum:** API ve arayüz tamamlandı, Vercel üzerinde yayında. API testlerle doğrulandı.
 
 ## Özellikler
 
@@ -112,6 +114,6 @@ Kimlik doğrulama testleri bellekte çalışır. Çalışma alanı, proje ve gö
 ## Yol haritası
 
 - [x] React arayüzü: giriş, çalışma alanları, sürükle-bırak görev panosu
-- [ ] Canlı yayın (API ve arayüz)
+- [x] Canlı yayın (API ve arayüz, Vercel)
 - [ ] Arayüz testleri
 - [ ] Görev etiketleri ve dosya ekleri
