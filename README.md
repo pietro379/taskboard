@@ -3,6 +3,12 @@
 Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, rollü üyelik, projeler, görevler ve yorumlar; REST API'si Node.js, Express ve PostgreSQL ile, arayüzü React ve Tailwind CSS ile yazıldı.
 
 ![CI](https://github.com/pietro379/taskboard/actions/workflows/ci.yml/badge.svg)
+![Node.js](https://img.shields.io/badge/Node.js-5FA04E?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-yay%C4%B1nda-000000?logo=vercel&logoColor=white)
 
 ![Sürükle-bırak görev panosu](docs/board.png)
 
