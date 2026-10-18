@@ -33,6 +33,33 @@ Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, roll
 - Panoda başlığa ve atanan kişiye göre filtreleme; masaüstü ve mobilde çalışan duyarlı tasarım
 - Klavyeyle gezilebilir kartlar ve diyaloglar (`Esc` ile kapanır), kullanıcı dostu hata mesajları
 
+## Mimari
+
+```mermaid
+flowchart LR
+  B["Tarayıcı<br/>React · Vite · Tailwind"] -- "HTTPS + JWT" --> A["REST API<br/>Express · zod<br/>(Vercel serverless)"]
+  A -- "parametreli SQL" --> D[("PostgreSQL<br/>Neon")]
+  G["GitHub Actions<br/>API + arayüz testleri, derleme"] -. "her push" .-> A
+  G -.-> B
+```
+
+Arayüz ve API iki ayrı Vercel projesi olarak aynı depodan yayınlanır; veritabanı Neon üzerindedir.
+
+### Veri modeli
+
+```mermaid
+erDiagram
+  users ||--o{ workspace_members : "üye"
+  workspaces ||--o{ workspace_members : "roller (admin / member)"
+  workspaces ||--o{ projects : "içerir"
+  workspaces ||--o{ labels : "etiketler"
+  workspaces ||--o{ activity_log : "etkinlik geçmişi"
+  projects ||--o{ tasks : "görevler"
+  tasks ||--o{ comments : "yorumlar"
+  tasks }o--o{ labels : "task_labels"
+  users ||--o{ tasks : "atanan / oluşturan"
+```
+
 ## Tasarım kararları
 
 - **Yetkilendirme sunucuda ve her uçta uygulanır.** Her istek, kullanıcının ilgili çalışma alanındaki üyeliğiyle birlikte tek sorguda çözülür. Üye olmayanlar için kaynak "yok" gibi davranır (403 yerine 404), böylece kimlik tahmin edilerek veri varlığı öğrenilemez.
