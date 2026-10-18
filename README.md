@@ -18,6 +18,8 @@ Takımlar için görev ve proje yönetim uygulaması. Çalışma alanları, roll
 
 **Canlı demo:** [taskboard-app-red.vercel.app](https://taskboard-app-red.vercel.app) · API: [taskboard-api-sand.vercel.app](https://taskboard-api-sand.vercel.app/health)
 
+**Demo hesabı:** `demo@taskboard.example` / `demo-taskboard-2026` - kayıt olmadan denemek için; dolu bir örnek çalışma alanıyla gelir. Veriler herkese açık olduğundan gerçek bilgi girmeyin.
+
 > **Durum:** API ve arayüz tamamlandı, Vercel üzerinde yayında. API testlerle doğrulandı.
 
 ## Özellikler
