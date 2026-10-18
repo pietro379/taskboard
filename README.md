@@ -104,6 +104,7 @@ cd server
 npm install
 cp .env.example .env     # DATABASE_URL ve JWT_SECRET değerlerini doldurun
 npm run migrate          # tabloları oluşturur
+npm run seed:demo        # isteğe bağlı: demo kullanıcısı ve örnek veri
 npm run dev              # http://localhost:3000
 
 # Arayüz (ayrı bir terminalde)
